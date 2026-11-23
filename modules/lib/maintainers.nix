@@ -392,6 +392,12 @@
     github = "mainrs";
     githubId = 5113257;
   };
+  maximizzar = {
+    name = "maximizzar";
+    email = "mail@maximizzar.de";
+    github = "maximizzar";
+    githubId = 60427093;
+  };
   mforster = {
     name = "Michael Forster";
     email = "email@michael-forster.de";

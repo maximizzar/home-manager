@@ -9,25 +9,49 @@
 }:
 let
   cfg = config.programs.oxipng;
+  toArgs =
+    opts:
+    lib.concatLists (
+      lib.mapAttrsToList (
+        name: value:
+        let
+          flag = if builtins.stringLength name == 1 then "-${name}" else "--${name}";
+        in
+        if value == null || value == false then
+          [ ]
+        else if value == true then
+          [ flag ]
+        else if lib.isList value then
+          [
+            flag
+            (lib.concatMapStringsSep "," toString value)
+          ]
+        else
+          [
+            flag
+            (toString value)
+          ]
+      ) opts
+    );
+
+  cliOptions = {
+    opt = cfg.optimizationLevel;
+  }
+  // lib.optionalAttrs cfg.preserve { preserve = true; }
+  // lib.optionalAttrs (cfg.threads != null) { inherit (cfg) threads; };
+
+  allOptions = cfg.settings // cliOptions;
+  shellArgs = lib.escapeShellArgs (toArgs allOptions);
+
   finalPackage = pkgs.symlinkJoin {
     name = "oxipng-wrapped";
     paths = [ cfg.package ];
     nativeBuildInputs = [ pkgs.makeWrapper ];
     postBuild = ''
       wrapProgram $out/bin/oxipng \
-      --add-flags ${shellArgs}
+      --add-flags ${lib.escapeShellArg shellArgs}
     '';
   };
-
-  cliOptions = {
-    opt = cfg.optimizationLevel;
-    inherit (cfg) preserve;
-  }
-  // lib.optionalAttrs (cfg.threads != null) {
-    inherit (cfg) threads;
-  };
-  allOptions = cfg.settings // cliOptions;
-  shellArgs = lib.cli.toGNUCommandLineShell { } allOptions;
 in
 {
   meta.maintainers = with lib.maintainers; [ maximizzar ];
@@ -56,16 +80,17 @@ in
         preset, regardless of the order you write the arguments.
       '';
     };
-    preserve = lib.mkEnableOption "Preserve file permissions and timestamps if possible.";
+
+    preserve = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Preserve file permissions and timestamps if possible.";
+    };
+
     threads = lib.mkOption {
       type = lib.types.nullOr lib.types.int;
       default = null;
-      description = ''
-        Set the maximum number of threads to use. Oxipng uses multithreading to evaluate multiple optimizations on the same file in parallel as well as
-        process multiple files in parallel. You can set this to a lower value if you need to limit memory or CPU usage.
-
-        [default: num logical CPUs]
-      '';
+      description = "Maximum number of threads to use. Defaults to the number of logical CPUs.";
     };
 
     settings = lib.mkOption {
